@@ -9,18 +9,29 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@project-serum/anchor": "^0.26.0",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/web3.js": "^1.95.4",
+    "daisyui": "^4.12.14",
+    "lucide-react": "^0.454.0",
+    "next": "15.0.2",
+    "pino-pretty": "^11.3.0",
     "react": "19.0.0-rc-02c0e824-20241028",
-    "react-dom": "19.0.0-rc-02c0e824-20241028",
-    "next": "15.0.2"
+    "react-dom": "19.0.0-rc-02c0e824-20241028"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/node": "^20",
+    "@shadcn/ui": "^0.0.4",
+    "@types/node": "^20.17.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/webpack": "^5.28.5",
+    "eslint": "^8",
+    "eslint-config-next": "15.0.2",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.2"
+    "typescript": "^5.6.3"
   }
 }

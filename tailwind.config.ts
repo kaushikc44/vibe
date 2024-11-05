@@ -7,13 +7,22 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {
-      colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-      },
-    },
+    extend: {},
   },
-  plugins: [],
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: [
+      {
+        dark: {
+          ...require("daisyui/src/theming/themes")["dark"],
+          "neutral": "#1f2937",
+          "neutral-focus": "#111827",
+          "primary": "#6366f1",
+          "primary-focus": "#4f46e5",
+        },
+      },
+    ],
+  },
 };
+
 export default config;

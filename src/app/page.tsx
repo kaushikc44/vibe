@@ -1,40 +1,72 @@
+// src/app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ProjectCard } from '@/components/ProjectCard';
+import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 
-const sampleProjects = [
-    {
-        name: "Project Alpha",
-        symbol: "ALPHA",
-        description: "Next-gen DeFi protocol",
-        totalRaise: 100000,
-        currentRaise: 75000,
-        tokenPrice: 0.1,
-        startTime: Date.now() + 86400000,
-        endTime: Date.now() + (7 * 86400000),
-        minAllocation: 100,
-        maxAllocation: 1000,
-        status: "active" as const
-    },
-    {
-        name: "Project Beta",
-        symbol: "BETA",
-        description: "Decentralized NFT marketplace",
-        totalRaise: 200000,
-        currentRaise: 50000,
-        tokenPrice: 0.2,
-        startTime: Date.now() - 86400000,
-        endTime: Date.now() + (3 * 86400000),
-        minAllocation: 200,
-        maxAllocation: 2000,
-        status: "active" as const
-    }
-];
+interface Pool {
+    address: string;
+    data: {
+        authority: PublicKey;
+        tokenMint: PublicKey;
+        tokenVault: PublicKey;
+        treasury: PublicKey;
+        totalAllocation: number;
+        remainingAllocation: number;
+        tokenPrice: number;
+        minAllocation: number;
+        maxAllocation: number;
+        startTime: number;
+        endTime: number;
+        paused: boolean;
+        finalized: boolean;
+    };
+}
 
 export default function Home() {
-    const [activeTab, setActiveTab] = useState('active');
+    const { getAllPools } = useIDOProgram();
+    const wallet = useWallet();
+    const [pools, setPools] = useState<Pool[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchPools = async () => {
+            if (!wallet.connected) {
+                setError("Please connect your wallet first");
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError(null);
+                console.log("Starting to fetch pools...");
+                const fetchedPools = await getAllPools();
+                console.log("Fetched pools successfully:", fetchedPools);
+                setPools(fetchedPools);
+            } catch (err) {
+                console.error("Error fetching pools:", err);
+                setError(
+                    err instanceof Error 
+                        ? err.message 
+                        : 'Failed to fetch pools. Please try again.'
+                );
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // Only fetch pools when wallet is connected
+        if (wallet.connected) {
+            fetchPools();
+        }
+
+    }, [getAllPools, wallet.connected]);
 
     return (
         <div className="min-h-screen bg-base-200">
@@ -48,37 +80,42 @@ export default function Home() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
-                <div className="tabs tabs-boxed mb-6">
-                    <a 
-                        className={`tab ${activeTab === 'active' && 'tab-active'}`}
-                        onClick={() => setActiveTab('active')}
-                    >
-                        Active
-                    </a>
-                    <a 
-                        className={`tab ${activeTab === 'upcoming' && 'tab-active'}`}
-                        onClick={() => setActiveTab('upcoming')}
-                    >
-                        Upcoming
-                    </a>
-                    <a 
-                        className={`tab ${activeTab === 'ended' && 'tab-active'}`}
-                        onClick={() => setActiveTab('ended')}
-                    >
-                        Ended
-                    </a>
-                </div>
-
-                <div className="space-y-6">
-                    {sampleProjects
-                        .filter(project => project.status === activeTab)
-                        .map((project, index) => (
+                <h1 className="text-3xl font-bold mb-8">Active IDO Pools</h1>
+                
+                {!wallet.connected ? (
+                    <div className="text-center p-8">
+                        <p className="text-gray-500 mb-4">Please connect your wallet to view pools</p>
+                        <WalletMultiButton className="btn btn-primary" />
+                    </div>
+                ) : loading ? (
+                    <div className="flex justify-center items-center p-8">
+                        <div className="loading loading-spinner loading-lg"></div>
+                    </div>
+                ) : error ? (
+                    <div className="alert alert-error">
+                        <span>{error}</span>
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="btn btn-sm btn-outline ml-4"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : pools.length === 0 ? (
+                    <div className="text-center p-8">
+                        <p className="text-gray-500">No active pools found</p>
+                    </div>
+                ) : (
+                    <div className="grid gap-6">
+                        {pools.map((pool) => (
                             <ProjectCard 
-                                key={index} 
-                                project={project}
+                                key={pool.address}
+                                address={pool.address}
+                                pool={pool.data}
                             />
                         ))}
-                </div>
+                    </div>
+                )}
             </div>
         </div>
     );

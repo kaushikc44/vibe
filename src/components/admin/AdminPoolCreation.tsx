@@ -20,29 +20,65 @@ export const AdminPoolCreation: FC = () => {
         startTime: '',
         endTime: ''
     });
+    const isValidPublicKey = (key: string): boolean => {
+        try {
+            new PublicKey(key);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+    
+    const validateInput = () => {
+        if (!isValidPublicKey(formData.tokenMint)) {
+            throw new Error('Invalid Token Mint Address');
+        }
+        if (!isValidPublicKey(formData.treasury)) {
+            throw new Error('Invalid Treasury Address');
+        }
+        if (Number(formData.totalAllocation) <= 0) {
+            throw new Error('Total allocation must be greater than 0');
+        }
+        if (Number(formData.tokenPrice) <= 0) {
+            throw new Error('Token price must be greater than 0');
+        }
+        if (Number(formData.minAllocation) <= 0) {
+            throw new Error('Min allocation must be greater than 0');
+        }
+        if (Number(formData.maxAllocation) <= Number(formData.minAllocation)) {
+            throw new Error('Max allocation must be greater than min allocation');
+        }
+    };
+    
+
+    // src/components/admin/AdminPoolCreation.tsx
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
-
+    
         try {
+            console.log("Form Data:", formData); // Debug log
+    
             const startTimestamp = Math.floor(new Date(formData.startTime).getTime() / 1000);
             const endTimestamp = Math.floor(new Date(formData.endTime).getTime() / 1000);
-
-            const tx = await initializePool(
-                new PublicKey(formData.tokenMint),
-                new PublicKey(formData.treasury),
-                Number(formData.totalAllocation),
-                Number(formData.tokenPrice),
-                Number(formData.minAllocation),
-                Number(formData.maxAllocation),
-                startTimestamp,
-                endTimestamp
+    
+            await initializePool(
+                {
+                    tokenMint: formData.tokenMint.toString(),
+                    treasury: formData.treasury.toString(),
+                },
+                {
+                    totalAllocation: Number(formData.totalAllocation),
+                    tokenPrice: Number(formData.tokenPrice),
+                    minAllocation: Number(formData.minAllocation),
+                    maxAllocation: Number(formData.maxAllocation),
+                    startTime: startTimestamp,
+                    endTime: endTimestamp,
+                }
             );
-
-            console.log("Pool created successfully:", tx);
-
+    
             // Reset form
             setFormData({
                 tokenMint: '',
@@ -54,7 +90,7 @@ export const AdminPoolCreation: FC = () => {
                 startTime: '',
                 endTime: ''
             });
-
+    
         } catch (err) {
             console.error('Error creating pool:', err);
             setError(err.message);
@@ -62,7 +98,6 @@ export const AdminPoolCreation: FC = () => {
             setLoading(false);
         }
     };
-
     return (
         <div className="card bg-base-100 shadow-xl">
             <div className="card-body">

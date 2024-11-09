@@ -7,21 +7,37 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // Colors from your logo
+        'brand': {
+          primary: '#FF3B30',    // Red from logo
+          secondary: '#1E2530',  // Dark navy
+          accent: '#FFFFFF',     // White details
+        }
+      }
+    },
   },
   plugins: [require("daisyui")],
   daisyui: {
     themes: [
       {
-        dark: {
-          ...require("daisyui/src/theming/themes")["dark"],
-          "neutral": "#1f2937",
-          "neutral-focus": "#111827",
-          "primary": "#6366f1",
-          "primary-focus": "#4f46e5",
+        mytheme: {
+          "primary": "#FF3B30",          // Red from logo
+          "secondary": "#1E2530",        // Dark navy
+          "accent": "#FFFFFF",           // White
+          "neutral": "#1E2530",          // Dark background
+          "base-100": "#1E2530",         // Dark background
+          "info": "#3ABFF8",            
+          "success": "#36D399",
+          "warning": "#FBBD23",
+          "error": "#F87272",
         },
       },
     ],
+    base: true,
+    darkTheme: "mytheme",
+    logs: false,
   },
 };
 

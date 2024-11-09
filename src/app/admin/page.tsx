@@ -2,11 +2,15 @@
 'use client';
 
 import { AdminPoolCreation } from '@/components/admin/AdminPoolCreation';
+import { AdminPoolList } from '@/components/admin/AdminPoolList';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useState } from 'react';
 
 export default function AdminPage() {
     const { connected } = useWallet();
+    const [activeTab, setActiveTab] = useState<'create' | 'view'>('view');
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     if (!connected) {
         return (
@@ -25,13 +29,44 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="min-h-screen bg-base-200 p-8">
-            <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold">IDO Admin</h1>
+        <div className="min-h-screen bg-base-200">
+            <div className="navbar bg-base-100">
+                <div className="flex-1">
+                    <a className="btn btn-ghost text-xl">IDO Admin</a>
+                </div>
+                <div className="flex-none">
                     <WalletMultiButton className="btn btn-primary" />
                 </div>
-                <AdminPoolCreation />
+            </div>
+
+            <div className="container mx-auto px-4 py-8">
+                <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+                    <div className="tabs tabs-boxed justify-center">
+                        <a 
+                            className={`tab ${activeTab === 'create' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('create')}
+                        >
+                            Create Pool
+                        </a>
+                        <a 
+                            className={`tab ${activeTab === 'view' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('view')}
+                        >
+                            View Pools
+                        </a>
+                    </div>
+
+                    {activeTab === 'create' ? (
+                        <AdminPoolCreation 
+                            onPoolCreated={() => {
+                                setRefreshTrigger(prev => prev + 1);
+                                setActiveTab('view'); // Switch to view tab after creation
+                            }} 
+                        />
+                    ) : (
+                        <AdminPoolList key={refreshTrigger} />
+                    )}
+                </div>
             </div>
         </div>
     );

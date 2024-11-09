@@ -5,7 +5,11 @@ import { FC, useState } from 'react';
 import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { PublicKey } from '@solana/web3.js';
 
-export const AdminPoolCreation: FC = () => {
+interface AdminPoolCreationProps {
+    onPoolCreated?: () => void;
+}
+
+export const AdminPoolCreation: FC<AdminPoolCreationProps> = ({ onPoolCreated }) => {
     const { initializePool } = useIDOProgram();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -20,6 +24,7 @@ export const AdminPoolCreation: FC = () => {
         startTime: '',
         endTime: ''
     });
+
     const isValidPublicKey = (key: string): boolean => {
         try {
             new PublicKey(key);
@@ -49,9 +54,6 @@ export const AdminPoolCreation: FC = () => {
             throw new Error('Max allocation must be greater than min allocation');
         }
     };
-    
-
-    // src/components/admin/AdminPoolCreation.tsx
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,6 +61,7 @@ export const AdminPoolCreation: FC = () => {
         setLoading(true);
     
         try {
+            validateInput();
             console.log("Form Data:", formData); // Debug log
     
             const startTimestamp = Math.floor(new Date(formData.startTime).getTime() / 1000);
@@ -90,6 +93,9 @@ export const AdminPoolCreation: FC = () => {
                 startTime: '',
                 endTime: ''
             });
+
+            // Notify parent component
+            onPoolCreated?.();
     
         } catch (err) {
             console.error('Error creating pool:', err);
@@ -98,6 +104,7 @@ export const AdminPoolCreation: FC = () => {
             setLoading(false);
         }
     };
+
     return (
         <div className="card bg-base-100 shadow-xl">
             <div className="card-body">

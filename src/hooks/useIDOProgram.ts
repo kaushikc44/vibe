@@ -260,32 +260,27 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
         );
         console.log('User token account:', userTokenAccount.toString());
 
-        // Create if token account doesn't exist
+        // Create token account if it doesn't exist
         const tokenAccountInfo = await connection.getAccountInfo(userTokenAccount);
         if (!tokenAccountInfo) {
             console.log('Creating associated token account...');
+            
+            // Create ATA instruction
             const createAtaIx = createAssociatedTokenAccountInstruction(
-                wallet.publicKey,
-                userTokenAccount,
-                wallet.publicKey,
-                poolAccount.tokenMint
+                wallet.publicKey, // payer
+                userTokenAccount, // ata
+                wallet.publicKey, // owner
+                poolAccount.tokenMint // mint
             );
-            await program.methods
-                .createTokenAccount()
-                .accounts({
-                    payer: wallet.publicKey,
-                    associatedToken: userTokenAccount,
-                    wallet: wallet.publicKey,
-                    mint: poolAccount.tokenMint,
-                    systemProgram: SystemProgram.programId,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    rent: SYSVAR_RENT_PUBKEY,
-                })
-                .preInstructions([createAtaIx])
-                .rpc();
+
+            // Send create ATA transaction
+            const createAtaTx = new Transaction().add(createAtaIx);
+            const signature = await wallet.sendTransaction(createAtaTx, connection);
+            await connection.confirmTransaction(signature, 'confirmed');
+            console.log('Token account created:', signature);
         }
 
+        // Now proceed with participation
         console.log('Sending participate transaction...');
         const tx = await program.methods
             .participate(new BN(amount))
@@ -310,13 +305,12 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
         return tx;
     } catch (error) {
         console.error("Detailed participation error:", error);
-        // Add more specific error handling
         if (error instanceof Error) {
             if (error.message.includes("insufficient funds")) {
                 throw new Error("Insufficient SOL balance");
             }
             if (error.message.includes("TokenAccount")) {
-                throw new Error("Token account setup required");
+                throw new Error("Token account creation failed");
             }
             throw error;
         }
@@ -420,13 +414,73 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
         }
     };
 
+    const getUserPoolParticipation = async (): Promise<Pool[]> => {
+        if (!program || !wallet.publicKey) throw new Error("Wallet not connected");
+    
+        try {
+            // Get all pools
+            const allPools = await program.account.idoPool.all();
+            const userParticipation = await Promise.all(
+                allPools.map(async (pool) => {
+                    try {
+                        // Get user's token account for this pool
+                        const userTokenAccount = await getAssociatedTokenAddress(
+                            pool.account.tokenMint,
+                            wallet.publicKey!
+                        );
+    
+                        // Check if token account exists and get balance
+                        const tokenAccount = await connection.getParsedAccountInfo(userTokenAccount);
+                        const balance = tokenAccount.value 
+                            ? (tokenAccount.value.data as any).parsed.info.tokenAmount.uiAmount 
+                            : 0;
+    
+                        // Only return pools where user has tokens
+                        if (balance > 0) {
+                            return {
+                                address: pool.publicKey.toString(),
+                                data: {
+                                    authority: pool.account.authority,
+                                    tokenMint: pool.account.tokenMint,
+                                    tokenVault: pool.account.tokenVault,
+                                    treasury: pool.account.treasury,
+                                    totalAllocation: Number(pool.account.totalAllocation),
+                                    remainingAllocation: Number(pool.account.remainingAllocation),
+                                    tokenPrice: Number(pool.account.tokenPrice),
+                                    minAllocation: Number(pool.account.minAllocation),
+                                    maxAllocation: Number(pool.account.maxAllocation),
+                                    startTime: Number(pool.account.startTime),
+                                    endTime: Number(pool.account.endTime),
+                                    paused: pool.account.paused,
+                                    finalized: pool.account.finalized,
+                                    userBalance: balance
+                                }
+                            };
+                        }
+                        return null;
+                    } catch (error) {
+                        console.error('Error checking participation:', error);
+                        return null;
+                    }
+                })
+            );
+    
+            // Filter out null values and return only pools where user has participated
+            return userParticipation.filter(pool => pool !== null) as Pool[];
+        } catch (error) {
+            console.error("Error fetching user participation:", error);
+            throw error;
+        }
+    };
+
     return {
         program,
         initializePool,
         participate,
         finalizePool,
         getPoolInfo,
-        getAllPools
+        getAllPools,
+        getUserPoolParticipation
     };
 };
 

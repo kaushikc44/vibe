@@ -2,7 +2,7 @@ import { WalletContextProvider } from '@/components/WalletContextProvider';
 import './globals.css';
 
 export const metadata = {
-  title: 'IDO Launchpad',
+  title: 'Soon Arise',
   description: 'A decentralized IDO launchpad platform',
 };
 

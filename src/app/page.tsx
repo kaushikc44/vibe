@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { PublicKey } from '@solana/web3.js';
+import Image from 'next/image';
 
 interface Pool {
     address: string;
@@ -23,6 +24,7 @@ interface Pool {
         endTime: number;
         paused: boolean;
         finalized: boolean;
+        userBalance?: number; // Optional field for investments
     };
 }
 
@@ -45,6 +47,7 @@ const IDOPoolCard = ({ pool, address }: { pool: Pool['data']; address: string })
             });
             console.log('Participation successful:', tx);
             setAmount('');
+            // Could add success notification here
         } catch (err) {
             console.error('Error participating:', err);
             setError(err instanceof Error ? err.message : 'Failed to participate');
@@ -153,9 +156,11 @@ const IDOPoolCard = ({ pool, address }: { pool: Pool['data']; address: string })
 };
 
 export default function Home() {
-    const { getAllPools } = useIDOProgram();
+    const { getAllPools, getUserPoolParticipation } = useIDOProgram();
     const { connected } = useWallet();
+    const [activeTab, setActiveTab] = useState<'pools' | 'investments'>('pools');
     const [pools, setPools] = useState<Pool[]>([]);
+    const [investments, setInvestments] = useState<Pool[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -165,9 +170,14 @@ export default function Home() {
         try {
             setLoading(true);
             setError(null);
-            const fetchedPools = await getAllPools();
+            const [fetchedPools, userInvestments] = await Promise.all([
+                getAllPools(),
+                getUserPoolParticipation()
+            ]);
             console.log('Fetched pools:', fetchedPools);
+            console.log('User investments:', userInvestments);
             setPools(fetchedPools);
+            setInvestments(userInvestments);
         } catch (err) {
             console.error('Error fetching pools:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch pools');
@@ -192,7 +202,8 @@ export default function Home() {
         <div className="min-h-screen bg-base-200">
             <div className="navbar bg-base-100">
                 <div className="flex-1">
-                    <a className="btn btn-ghost text-xl">IDO Launchpad</a>
+                  <Image src="/arise.png" width={50} height={50} alt='optional' />
+                    <a className="btn btn-ghost text-xl">Soon Arise</a>
                 </div>
                 <div className="flex-none">
                     <WalletMultiButton className="btn btn-primary" />
@@ -200,15 +211,34 @@ export default function Home() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
+                {connected && (
+                    <div className="tabs tabs-boxed justify-center mb-8">
+                        <a 
+                            className={`tab ${activeTab === 'pools' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('pools')}
+                        >
+                            All Pools
+                        </a>
+                        <a 
+                            className={`tab ${activeTab === 'investments' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('investments')}
+                        >
+                            My Investments
+                        </a>
+                    </div>
+                )}
+
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold">Active IDO Pools</h1>
+                    <h1 className="text-3xl font-bold">
+                        {activeTab === 'pools' ? 'Active IDO Pools' : 'My Investments'}
+                    </h1>
                     {connected && (
                         <button 
                             onClick={fetchPools}
                             className={`btn btn-outline ${loading ? 'loading' : ''}`}
                             disabled={loading}
                         >
-                            Refresh Pools
+                            Refresh
                         </button>
                     )}
                 </div>
@@ -232,20 +262,42 @@ export default function Home() {
                             Retry
                         </button>
                     </div>
-                ) : pools.length === 0 ? (
-                    <div className="text-center p-8">
-                        <p className="text-gray-500">No active pools found</p>
-                    </div>
+                ) : activeTab === 'pools' ? (
+                    pools.length === 0 ? (
+                        <div className="text-center p-8">
+                            <p className="text-gray-500">No active pools found</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-6">
+                            {pools.map((pool) => (
+                                <IDOPoolCard 
+                                    key={pool.address}
+                                    pool={pool.data}
+                                    address={pool.address}
+                                />
+                            ))}
+                        </div>
+                    )
                 ) : (
-                    <div className="grid gap-6">
-                        {pools.map((pool) => (
-                            <IDOPoolCard 
-                                key={pool.address}
-                                pool={pool.data}
-                                address={pool.address}
-                            />
-                        ))}
-                    </div>
+                    investments.length === 0 ? (
+                        <div className="text-center p-8">
+                            <p className="text-gray-500">You haven't participated in any pools yet</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-6">
+                            {investments.map((pool) => (
+                                <div key={pool.address} className="relative">
+                                    <div className="absolute top-4 right-4 badge badge-lg badge-primary z-10">
+                                        Your Investment: {pool.data.userBalance} tokens
+                                    </div>
+                                    <IDOPoolCard 
+                                        pool={pool.data}
+                                        address={pool.address}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )
                 )}
             </div>
         </div>

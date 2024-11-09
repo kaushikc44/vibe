@@ -18,11 +18,13 @@
     "@solana/web3.js": "^1.95.4",
     "bn.js": "^5.2.1",
     "daisyui": "^4.12.14",
+    "framer-motion": "^10.18.0",
     "lucide-react": "^0.454.0",
     "next": "15.0.2",
     "pino-pretty": "^11.3.0",
     "react": "19.0.0-rc-02c0e824-20241028",
-    "react-dom": "19.0.0-rc-02c0e824-20241028"
+    "react-dom": "19.0.0-rc-02c0e824-20241028",
+    "react-intersection-observer": "^9.5.3"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",

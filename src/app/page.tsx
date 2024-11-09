@@ -2,10 +2,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ProjectCard } from '@/components/ProjectCard';
-import { useIDOProgram } from '@/hooks/useIDOProgram';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { PublicKey } from '@solana/web3.js';
 
 interface Pool {
@@ -27,46 +26,167 @@ interface Pool {
     };
 }
 
+const IDOPoolCard = ({ pool, address }: { pool: Pool['data']; address: string }) => {
+    const [amount, setAmount] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { participate } = useIDOProgram();
+    const { connected } = useWallet();
+
+    const handleParticipate = async () => {
+        if (!amount || !connected) return;
+        setLoading(true);
+        setError(null);
+
+        try {
+            const tx = await participate({
+                poolAddress: address,
+                amount: Number(amount)
+            });
+            console.log('Participation successful:', tx);
+            setAmount('');
+        } catch (err) {
+            console.error('Error participating:', err);
+            setError(err instanceof Error ? err.message : 'Failed to participate');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const soldAmount = pool.totalAllocation - pool.remainingAllocation;
+    const progress = (soldAmount / pool.totalAllocation) * 100;
+    const timeLeft = Math.max(0, Math.floor((pool.endTime - Date.now() / 1000) / (60 * 60 * 24)));
+    const isActive = !pool.finalized && !pool.paused && timeLeft > 0;
+
+    return (
+        <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+                {/* Header */}
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h2 className="card-title">Token: {pool.tokenMint.toString().slice(0, 8)}...</h2>
+                        <p className="text-sm opacity-70">Pool: {address.slice(0, 8)}...</p>
+                    </div>
+                    <div className={`badge ${
+                        pool.finalized ? 'badge-error' : 
+                        pool.paused ? 'badge-warning' : 
+                        'badge-success'
+                    }`}>
+                        {pool.finalized ? 'Ended' : pool.paused ? 'Paused' : 'Active'}
+                    </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 my-4">
+                    <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">Price</div>
+                        <div className="stat-value text-lg">{pool.tokenPrice / 1e9} SOL</div>
+                    </div>
+                    
+                    <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">Allocation</div>
+                        <div className="stat-value text-lg">
+                            {pool.minAllocation} - {pool.maxAllocation}
+                        </div>
+                    </div>
+                    
+                    <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">Time Left</div>
+                        <div className="stat-value text-lg">{timeLeft} days</div>
+                    </div>
+                </div>
+
+                {/* Progress */}
+                <div className="my-4">
+                    <div className="flex justify-between mb-2">
+                        <span>Progress</span>
+                        <span>{progress.toFixed(1)}%</span>
+                    </div>
+                    <progress 
+                        className="progress progress-primary w-full" 
+                        value={progress} 
+                        max="100"
+                    />
+                    <div className="flex justify-between mt-2 text-sm opacity-70">
+                        <span>{soldAmount.toLocaleString()} sold</span>
+                        <span>{pool.totalAllocation.toLocaleString()} total</span>
+                    </div>
+                </div>
+
+                {/* Participation Form */}
+                {isActive && (
+                    <div className="flex gap-4 mt-4">
+                        <input 
+                            type="number" 
+                            placeholder={`Enter amount (${pool.minAllocation}-${pool.maxAllocation})`}
+                            className="input input-bordered flex-1"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            min={pool.minAllocation}
+                            max={pool.maxAllocation}
+                            disabled={loading || !connected}
+                        />
+                        {connected ? (
+                            <button 
+                                className={`btn btn-primary ${loading && 'loading'}`}
+                                onClick={handleParticipate}
+                                disabled={loading || !amount || 
+                                    Number(amount) < pool.minAllocation || 
+                                    Number(amount) > pool.maxAllocation}
+                            >
+                                {loading ? 'Processing...' : 'Participate'}
+                            </button>
+                        ) : (
+                            <WalletMultiButton className="btn btn-primary" />
+                        )}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="alert alert-error mt-4">
+                        <span>{error}</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export default function Home() {
     const { getAllPools } = useIDOProgram();
-    const wallet = useWallet();
+    const { connected } = useWallet();
     const [pools, setPools] = useState<Pool[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const fetchPools = async () => {
+        if (!connected) return;
+
+        try {
+            setLoading(true);
+            setError(null);
+            const fetchedPools = await getAllPools();
+            console.log('Fetched pools:', fetchedPools);
+            setPools(fetchedPools);
+        } catch (err) {
+            console.error('Error fetching pools:', err);
+            setError(err instanceof Error ? err.message : 'Failed to fetch pools');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchPools = async () => {
-            if (!wallet.connected) {
-                setError("Please connect your wallet first");
-                setLoading(false);
-                return;
-            }
+        let mounted = true;
 
-            try {
-                setLoading(true);
-                setError(null);
-                console.log("Starting to fetch pools...");
-                const fetchedPools = await getAllPools();
-                console.log("Fetched pools successfully:", fetchedPools);
-                setPools(fetchedPools);
-            } catch (err) {
-                console.error("Error fetching pools:", err);
-                setError(
-                    err instanceof Error 
-                        ? err.message 
-                        : 'Failed to fetch pools. Please try again.'
-                );
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        // Only fetch pools when wallet is connected
-        if (wallet.connected) {
+        if (connected && mounted) {
             fetchPools();
         }
 
-    }, [getAllPools, wallet.connected]);
+        return () => {
+            mounted = false;
+        };
+    }, [connected]);
 
     return (
         <div className="min-h-screen bg-base-200">
@@ -80,14 +200,25 @@ export default function Home() {
             </div>
 
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl font-bold mb-8">Active IDO Pools</h1>
-                
-                {!wallet.connected ? (
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold">Active IDO Pools</h1>
+                    {connected && (
+                        <button 
+                            onClick={fetchPools}
+                            className={`btn btn-outline ${loading ? 'loading' : ''}`}
+                            disabled={loading}
+                        >
+                            Refresh Pools
+                        </button>
+                    )}
+                </div>
+
+                {!connected ? (
                     <div className="text-center p-8">
-                        <p className="text-gray-500 mb-4">Please connect your wallet to view pools</p>
+                        <p className="text-gray-500 mb-4">Connect your wallet to view and participate in IDO pools</p>
                         <WalletMultiButton className="btn btn-primary" />
                     </div>
-                ) : loading ? (
+                ) : loading && pools.length === 0 ? (
                     <div className="flex justify-center items-center p-8">
                         <div className="loading loading-spinner loading-lg"></div>
                     </div>
@@ -95,7 +226,7 @@ export default function Home() {
                     <div className="alert alert-error">
                         <span>{error}</span>
                         <button 
-                            onClick={() => window.location.reload()} 
+                            onClick={fetchPools} 
                             className="btn btn-sm btn-outline ml-4"
                         >
                             Retry
@@ -108,10 +239,10 @@ export default function Home() {
                 ) : (
                     <div className="grid gap-6">
                         {pools.map((pool) => (
-                            <ProjectCard 
+                            <IDOPoolCard 
                                 key={pool.address}
-                                address={pool.address}
                                 pool={pool.data}
+                                address={pool.address}
                             />
                         ))}
                     </div>

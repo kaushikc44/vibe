@@ -14,7 +14,7 @@ import {
 import { 
     TOKEN_PROGRAM_ID, 
     getAssociatedTokenAddress,
-    ASSOCIATED_TOKEN_PROGRAM_ID
+    ASSOCIATED_TOKEN_PROGRAM_ID,createAssociatedTokenAccountInstruction
 } from '@solana/spl-token';
 import BN from 'bn.js';
 
@@ -23,6 +23,26 @@ interface InitializePoolAccounts {
     tokenMint: string;
     treasury: string;
 }
+
+interface Pool {
+    address: string;
+    data: {
+        authority: PublicKey;
+        tokenMint: PublicKey;
+        tokenVault: PublicKey;
+        treasury: PublicKey;
+        totalAllocation: number;
+        remainingAllocation: number;
+        tokenPrice: number;
+        minAllocation: number;
+        maxAllocation: number;
+        startTime: number;
+        endTime: number;
+        paused: boolean;
+        finalized: boolean;
+    };
+}
+
 
 interface InitializePoolParams {
     totalAllocation: number;
@@ -218,47 +238,91 @@ export const useIDOProgram = () => {
     }
 };
 
-    const participate = async ({ poolAddress, amount }: ParticipateParams) => {
-        if (!program || !wallet.publicKey) {
-            throw new Error("Program not initialized or wallet not connected");
+const participate = async ({ poolAddress, amount }: ParticipateParams) => {
+    if (!program || !wallet.publicKey) {
+        throw new Error("Program not initialized or wallet not connected");
+    }
+
+    try {
+        console.log('Starting participation with:', { poolAddress, amount });
+        
+        // Convert pool address string to PublicKey
+        const poolPubkey = new PublicKey(poolAddress);
+        
+        // Fetch pool data
+        const poolAccount = await program.account.idoPool.fetch(poolPubkey);
+        console.log('Pool account:', poolAccount);
+
+        // Get user's token account
+        const userTokenAccount = await getAssociatedTokenAddress(
+            poolAccount.tokenMint,
+            wallet.publicKey
+        );
+        console.log('User token account:', userTokenAccount.toString());
+
+        // Create if token account doesn't exist
+        const tokenAccountInfo = await connection.getAccountInfo(userTokenAccount);
+        if (!tokenAccountInfo) {
+            console.log('Creating associated token account...');
+            const createAtaIx = createAssociatedTokenAccountInstruction(
+                wallet.publicKey,
+                userTokenAccount,
+                wallet.publicKey,
+                poolAccount.tokenMint
+            );
+            await program.methods
+                .createTokenAccount()
+                .accounts({
+                    payer: wallet.publicKey,
+                    associatedToken: userTokenAccount,
+                    wallet: wallet.publicKey,
+                    mint: poolAccount.tokenMint,
+                    systemProgram: SystemProgram.programId,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                    rent: SYSVAR_RENT_PUBKEY,
+                })
+                .preInstructions([createAtaIx])
+                .rpc();
         }
 
-        try {
-            const poolPubkey = new PublicKey(poolAddress);
-            
-            // Fetch pool data
-            const poolAccount = await program.account.idoPool.fetch(poolPubkey);
-            
-            // Get user's token account
-            const userTokenAccount = await getAssociatedTokenAddress(
-                poolAccount.tokenMint,
-                wallet.publicKey
-            );
+        console.log('Sending participate transaction...');
+        const tx = await program.methods
+            .participate(new BN(amount))
+            .accounts({
+                pool: poolPubkey,
+                user: wallet.publicKey,
+                tokenVault: poolAccount.tokenVault,
+                userTokenAccount: userTokenAccount,
+                treasury: poolAccount.treasury,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+            })
+            .rpc({
+                skipPreflight: true,
+                commitment: 'confirmed'
+            });
 
-            const tx = await program.methods
-                .participate(new BN(amount))
-                .accounts({
-                    pool: poolPubkey,
-                    user: wallet.publicKey,
-                    tokenVault: poolAccount.tokenVault,
-                    userTokenAccount: userTokenAccount,
-                    treasury: poolAccount.treasury,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
-                })
-                .rpc({
-                    skipPreflight: true,
-                    commitment: 'confirmed'
-                });
+        console.log('Participation transaction sent:', tx);
+        await connection.confirmTransaction(tx, 'confirmed');
+        console.log('Transaction confirmed');
 
-            await connection.confirmTransaction(tx, 'confirmed');
-            return tx;
-
-        } catch (error) {
-            console.error("Error participating in pool:", error);
+        return tx;
+    } catch (error) {
+        console.error("Detailed participation error:", error);
+        // Add more specific error handling
+        if (error instanceof Error) {
+            if (error.message.includes("insufficient funds")) {
+                throw new Error("Insufficient SOL balance");
+            }
+            if (error.message.includes("TokenAccount")) {
+                throw new Error("Token account setup required");
+            }
             throw error;
         }
-    };
+        throw new Error("Failed to participate in pool");
+    }
+};
 
     const finalizePool = async (poolAddress: string) => {
         if (!program || !wallet.publicKey) {
@@ -297,9 +361,9 @@ export const useIDOProgram = () => {
         }
     };
 
-    const getAllPools = async () => {
+    const getAllPools = async (): Promise<Pool[]> => {
         if (!program) throw new Error("Program not initialized");
-
+    
         try {
             console.log("Fetching all pools...");
             const allPools = await program.account.idoPool.all();
@@ -328,7 +392,6 @@ export const useIDOProgram = () => {
             throw error;
         }
     };
-
     const getPoolInfo = async (poolAddress: string) => {
         if (!program) throw new Error("Program not initialized");
     

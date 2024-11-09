@@ -7,6 +7,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { PublicKey } from '@solana/web3.js';
 import Image from 'next/image';
+import { SearchAndFilter } from '@/components/SearchAndFilter';
 
 interface Pool {
     address: string;
@@ -24,7 +25,7 @@ interface Pool {
         endTime: number;
         paused: boolean;
         finalized: boolean;
-        userBalance?: number; // Optional field for investments
+        userBalance?: number;
     };
 }
 
@@ -47,7 +48,6 @@ const IDOPoolCard = ({ pool, address }: { pool: Pool['data']; address: string })
             });
             console.log('Participation successful:', tx);
             setAmount('');
-            // Could add success notification here
         } catch (err) {
             console.error('Error participating:', err);
             setError(err instanceof Error ? err.message : 'Failed to participate');
@@ -160,6 +160,7 @@ export default function Home() {
     const { connected } = useWallet();
     const [activeTab, setActiveTab] = useState<'pools' | 'investments'>('pools');
     const [pools, setPools] = useState<Pool[]>([]);
+    const [filteredPools, setFilteredPools] = useState<Pool[]>([]);
     const [investments, setInvestments] = useState<Pool[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -177,6 +178,7 @@ export default function Home() {
             console.log('Fetched pools:', fetchedPools);
             console.log('User investments:', userInvestments);
             setPools(fetchedPools);
+            setFilteredPools(fetchedPools); // Initialize filtered pools
             setInvestments(userInvestments);
         } catch (err) {
             console.error('Error fetching pools:', err);
@@ -202,7 +204,7 @@ export default function Home() {
         <div className="min-h-screen bg-base-200">
             <div className="navbar bg-base-100">
                 <div className="flex-1">
-                  <Image src="/arise.png" width={50} height={50} alt='optional' />
+                    <Image src="/arise.png" width={50} height={50} alt='optional' />
                     <a className="btn btn-ghost text-xl">Soon Arise</a>
                 </div>
                 <div className="flex-none">
@@ -263,21 +265,29 @@ export default function Home() {
                         </button>
                     </div>
                 ) : activeTab === 'pools' ? (
-                    pools.length === 0 ? (
-                        <div className="text-center p-8">
-                            <p className="text-gray-500">No active pools found</p>
-                        </div>
-                    ) : (
-                        <div className="grid gap-6">
-                            {pools.map((pool) => (
-                                <IDOPoolCard 
-                                    key={pool.address}
-                                    pool={pool.data}
-                                    address={pool.address}
-                                />
-                            ))}
-                        </div>
-                    )
+                    <>
+                        {pools.length > 0 && (
+                            <SearchAndFilter 
+                                pools={pools}
+                                onFilteredPoolsChange={setFilteredPools}
+                            />
+                        )}
+                        {filteredPools.length === 0 ? (
+                            <div className="text-center p-8">
+                                <p className="text-gray-500">No matching pools found</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6">
+                                {filteredPools.map((pool) => (
+                                    <IDOPoolCard 
+                                        key={pool.address}
+                                        pool={pool.data}
+                                        address={pool.address}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </>
                 ) : (
                     investments.length === 0 ? (
                         <div className="text-center p-8">

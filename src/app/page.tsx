@@ -4,52 +4,6 @@
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { useInView } from 'react-intersection-observer';
-
-// Animation variants
-const fadeIn = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      duration: 0.6,
-      ease: "easeOut"
-    }
-  }
-};
-
-const floatAnimation = {
-  y: [0, -8, 0],
-  transition: {
-    duration: 2.5,
-    repeat: Infinity,
-    repeatType: "reverse",
-    ease: "easeInOut"
-  }
-};
-
-const iconFloat = {
-  y: [0, -5, 0],
-  transition: {
-    duration: 2,
-    repeat: Infinity,
-    repeatType: "reverse",
-    ease: "easeInOut"
-  }
-};
-
-const staggerChildren = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2
-    }
-  }
-};
 
 // Feature card data
 const features = [
@@ -90,61 +44,32 @@ const stats = [
 ];
 
 export default function Home() {
-  const [isHoveredCard, setIsHoveredCard] = useState<number | null>(null);
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1
-  });
-
   const StatCard = ({ title, value, desc }: { title: string; value: string; desc: string }) => (
-    <motion.div 
-      variants={fadeIn}
-      whileHover={{ scale: 1.02 }}
-      className="stat bg-secondary/50 rounded-xl transform transition-all duration-300 hover:shadow-lg"
-    >
+    <div className="stat bg-secondary/50 rounded-xl transform transition-all duration-300 hover:shadow-lg hover:scale-102">
       <div className="stat-title text-gray-400">{title}</div>
-      <motion.div 
-        className="stat-value text-primary"
-        animate={floatAnimation}
-      >
+      <div className="stat-value text-primary">
         {value}
-      </motion.div>
+      </div>
       <div className="stat-desc text-gray-400">{desc}</div>
-    </motion.div>
+    </div>
   );
 
-  const FeatureCard = ({ feature, index }: { feature: typeof features[0]; index: number }) => (
-    <motion.div
-      variants={fadeIn}
-      whileHover={{ scale: 1.02 }}
-      className={`card bg-secondary/50 shadow-xl transition-all duration-300 ${
-        isHoveredCard === index ? 'ring-2 ring-primary' : ''
-      }`}
-      onHoverStart={() => setIsHoveredCard(index)}
-      onHoverEnd={() => setIsHoveredCard(null)}
-    >
+  const FeatureCard = ({ feature }: { feature: typeof features[0] }) => (
+    <div className="card bg-secondary/50 shadow-xl transition-all duration-300 hover:scale-102">
       <div className="card-body">
-        <motion.div
-          animate={iconFloat}
-          className="text-4xl mb-4 inline-block"
-        >
+        <div className="text-4xl mb-4 inline-block">
           {feature.icon}
-        </motion.div>
+        </div>
         <h3 className="card-title text-white">{feature.title}</h3>
         <p className="text-gray-400">{feature.description}</p>
       </div>
-    </motion.div>
+    </div>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-secondary to-neutral">
       {/* Navbar */}
-      <motion.nav 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-        className="fixed top-0 w-full bg-secondary/80 backdrop-blur-sm z-50"
-      >
+      <nav className="fixed top-0 w-full bg-secondary/80 backdrop-blur-sm z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -168,21 +93,13 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </motion.nav>
+      </nav>
 
       {/* Hero Section */}
       <section className="pt-24 pb-20">
         <div className="container mx-auto px-4">
-          <motion.div 
-            initial="hidden"
-            animate="visible"
-            variants={staggerChildren}
-            className="flex flex-col items-center text-center"
-          >
-            <motion.div
-              animate={floatAnimation}
-              className="hover:scale-105 transition-transform duration-300"
-            >
+          <div className="flex flex-col items-center text-center">
+            <div className="hover:scale-105 transition-transform duration-300">
               <Image 
                 src="/arise.png" 
                 alt="Hero Logo" 
@@ -190,95 +107,56 @@ export default function Home() {
                 height={200}
                 className="mb-8 drop-shadow-2xl"
               />
-            </motion.div>
+            </div>
 
-            <motion.h1 
-              variants={fadeIn}
-              className="text-5xl font-bold text-white mb-6"
-            >
+            <h1 className="text-5xl font-bold text-white mb-6">
               Welcome to SOON ARISE
-            </motion.h1>
+            </h1>
 
-            <motion.p 
-              variants={fadeIn}
-              className="text-xl text-gray-300 max-w-2xl mb-8"
-            >
+            <p className="text-xl text-gray-300 max-w-2xl mb-8">
               Launch your token with confidence on the most secure and decentralized platform
-            </motion.p>
+            </p>
 
-            <motion.div 
-              variants={fadeIn}
-              className="flex gap-4"
-            >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link href="/admin" className="btn btn-primary btn-lg">
-                  Launch Token
-                </Link>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link href="/idotoken" className="btn btn-outline btn-lg text-white hover:bg-primary">
-                  Explore IDOs
-                </Link>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+            <div className="flex gap-4">
+              <Link href="/admin" className="btn btn-primary btn-lg hover:scale-105 transition-transform">
+                Launch Token
+              </Link>
+              <Link href="/idotoken" className="btn btn-outline btn-lg text-white hover:bg-primary hover:scale-105 transition-transform">
+                Explore IDOs
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Stats Section */}
       <section className="py-20 bg-secondary/50">
-        <motion.div 
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={staggerChildren}
-          className="container mx-auto px-4"
-        >
+        <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {stats.map((stat, index) => (
               <StatCard key={index} {...stat} />
             ))}
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20" ref={ref}>
-        <motion.div 
-          initial="hidden"
-          animate={inView ? "visible" : "hidden"}
-          variants={staggerChildren}
-          className="container mx-auto px-4"
-        >
-          <motion.h2 
-            variants={fadeIn}
-            className="text-3xl font-bold text-center text-white mb-12"
-          >
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center text-white mb-12">
             Why Choose Our Platform
-          </motion.h2>
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <FeatureCard key={index} feature={feature} index={index} />
+              <FeatureCard key={index} feature={feature} />
             ))}
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* Footer */}
-      <motion.footer 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="bg-secondary/80 py-8"
-      >
+      <footer className="bg-secondary/80 py-8">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -298,7 +176,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </motion.footer>
+      </footer>
     </div>
   );
 }

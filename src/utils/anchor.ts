@@ -13,7 +13,7 @@ export const getProgram = (wallet: any, connection: Connection) => {
     );
     
     return new Program(
-        idl as IDOInstruction,
+        idl as any,
         programId,
         provider
     );

@@ -250,7 +250,7 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
         const poolPubkey = new PublicKey(poolAddress);
         
         // Fetch pool data
-        const poolAccount = await program.account.idoPool.fetch(poolPubkey);
+        const poolAccount:any = await program.account.idoPool.fetch(poolPubkey);
         console.log('Pool account:', poolAccount);
 
         // Get user's token account
@@ -325,7 +325,7 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
 
         try {
             const poolPubkey = new PublicKey(poolAddress);
-            const poolAccount = await program.account.idoPool.fetch(poolPubkey);
+            const poolAccount:any = await program.account.idoPool.fetch(poolPubkey);
             
             // Get authority token account
             const authorityTokenAccount = await getAssociatedTokenAddress(
@@ -406,7 +406,7 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
                     paused: pool.account.paused,
                     finalized: pool.account.finalized
                 }
-            }));
+            })) as any;
         } catch (error) {
             console.error("Error fetching pools:", error);
             throw error;
@@ -451,7 +451,7 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
                     try {
                         // Get user's token account for this pool
                         const userTokenAccount = await getAssociatedTokenAddress(
-                            pool.account.tokenMint,
+                            pool.account.tokenMint as any,
                             wallet.publicKey!
                         );
     

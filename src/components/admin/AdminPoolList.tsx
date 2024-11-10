@@ -4,6 +4,10 @@ import { FC, useState, useEffect } from 'react';
 import { useIDOProgram } from '@/hooks/useIDOProgram';
 import { PublicKey } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { 
+    getAssociatedTokenAddress,
+    TOKEN_PROGRAM_ID 
+} from '@solana/spl-token';
 
 export const AdminPoolList: FC = () => {
     const { program, finalizePool } = useIDOProgram();

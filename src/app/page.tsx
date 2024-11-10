@@ -1,315 +1,304 @@
 // src/app/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useIDOProgram } from '@/hooks/useIDOProgram';
-import { PublicKey } from '@solana/web3.js';
 import Image from 'next/image';
-import { SearchAndFilter } from '@/components/SearchAndFilter';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { useInView } from 'react-intersection-observer';
 
-interface Pool {
-    address: string;
-    data: {
-        authority: PublicKey;
-        tokenMint: PublicKey;
-        tokenVault: PublicKey;
-        treasury: PublicKey;
-        totalAllocation: number;
-        remainingAllocation: number;
-        tokenPrice: number;
-        minAllocation: number;
-        maxAllocation: number;
-        startTime: number;
-        endTime: number;
-        paused: boolean;
-        finalized: boolean;
-        userBalance?: number;
-    };
-}
-
-const IDOPoolCard = ({ pool, address }: { pool: Pool['data']; address: string }) => {
-    const [amount, setAmount] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const { participate } = useIDOProgram();
-    const { connected } = useWallet();
-
-    const handleParticipate = async () => {
-        if (!amount || !connected) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            const tx = await participate({
-                poolAddress: address,
-                amount: Number(amount)
-            });
-            console.log('Participation successful:', tx);
-            setAmount('');
-        } catch (err) {
-            console.error('Error participating:', err);
-            setError(err instanceof Error ? err.message : 'Failed to participate');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const soldAmount = pool.totalAllocation - pool.remainingAllocation;
-    const progress = (soldAmount / pool.totalAllocation) * 100;
-    const timeLeft = Math.max(0, Math.floor((pool.endTime - Date.now() / 1000) / (60 * 60 * 24)));
-    const isActive = !pool.finalized && !pool.paused && timeLeft > 0;
-
-    return (
-        <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-                {/* Header */}
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="card-title">Token: {pool.tokenMint.toString().slice(0, 8)}...</h2>
-                        <p className="text-sm opacity-70">Pool: {address.slice(0, 8)}...</p>
-                    </div>
-                    <div className={`badge ${
-                        pool.finalized ? 'badge-error' : 
-                        pool.paused ? 'badge-warning' : 
-                        'badge-success'
-                    }`}>
-                        {pool.finalized ? 'Ended' : pool.paused ? 'Paused' : 'Active'}
-                    </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 my-4">
-                    <div className="stat bg-base-200 rounded-box p-4">
-                        <div className="stat-title">Price</div>
-                        <div className="stat-value text-lg">{pool.tokenPrice / 1e9} SOL</div>
-                    </div>
-                    
-                    <div className="stat bg-base-200 rounded-box p-4">
-                        <div className="stat-title">Allocation</div>
-                        <div className="stat-value text-lg">
-                            {pool.minAllocation} - {pool.maxAllocation}
-                        </div>
-                    </div>
-                    
-                    <div className="stat bg-base-200 rounded-box p-4">
-                        <div className="stat-title">Time Left</div>
-                        <div className="stat-value text-lg">{timeLeft} days</div>
-                    </div>
-                </div>
-
-                {/* Progress */}
-                <div className="my-4">
-                    <div className="flex justify-between mb-2">
-                        <span>Progress</span>
-                        <span>{progress.toFixed(1)}%</span>
-                    </div>
-                    <progress 
-                        className="progress progress-primary w-full" 
-                        value={progress} 
-                        max="100"
-                    />
-                    <div className="flex justify-between mt-2 text-sm opacity-70">
-                        <span>{soldAmount.toLocaleString()} sold</span>
-                        <span>{pool.totalAllocation.toLocaleString()} total</span>
-                    </div>
-                </div>
-
-                {/* Participation Form */}
-                {isActive && (
-                    <div className="flex gap-4 mt-4">
-                        <input 
-                            type="number" 
-                            placeholder={`Enter amount (${pool.minAllocation}-${pool.maxAllocation})`}
-                            className="input input-bordered flex-1"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            min={pool.minAllocation}
-                            max={pool.maxAllocation}
-                            disabled={loading || !connected}
-                        />
-                        {connected ? (
-                            <button 
-                                className={`btn btn-primary ${loading && 'loading'}`}
-                                onClick={handleParticipate}
-                                disabled={loading || !amount || 
-                                    Number(amount) < pool.minAllocation || 
-                                    Number(amount) > pool.maxAllocation}
-                            >
-                                {loading ? 'Processing...' : 'Participate'}
-                            </button>
-                        ) : (
-                            <WalletMultiButton className="btn btn-primary" />
-                        )}
-                    </div>
-                )}
-
-                {error && (
-                    <div className="alert alert-error mt-4">
-                        <span>{error}</span>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+// Animation variants
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: "easeOut"
+    }
+  }
 };
 
+const floatAnimation = {
+  y: [0, -8, 0],
+  transition: {
+    duration: 2.5,
+    repeat: Infinity,
+    repeatType: "reverse",
+    ease: "easeInOut"
+  }
+};
+
+const iconFloat = {
+  y: [0, -5, 0],
+  transition: {
+    duration: 2,
+    repeat: Infinity,
+    repeatType: "reverse",
+    ease: "easeInOut"
+  }
+};
+
+const staggerChildren = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2
+    }
+  }
+};
+
+// Feature card data
+const features = [
+  {
+    title: "Secure & Decentralized",
+    description: "Built on Solana for maximum security and true decentralization",
+    icon: "🛡️"
+  },
+  {
+    title: "Fair Launch",
+    description: "Equal opportunity for all participants with transparent allocation",
+    icon: "⚖️"
+  },
+  {
+    title: "Easy to Use",
+    description: "Simple interface for both project creators and participants",
+    icon: "🚀"
+  }
+];
+
+// Stats card data
+const stats = [
+  {
+    title: "Total Value Locked",
+    value: "$120M+",
+    desc: "↗︎ 400 (22%)"
+  },
+  {
+    title: "Successful IDOs",
+    value: "150+",
+    desc: "Last 30 days"
+  },
+  {
+    title: "Active Users",
+    value: "50K+",
+    desc: "↗︎ 1,200 (12%)"
+  }
+];
+
 export default function Home() {
-    const { getAllPools, getUserPoolParticipation } = useIDOProgram();
-    const { connected } = useWallet();
-    const [activeTab, setActiveTab] = useState<'pools' | 'investments'>('pools');
-    const [pools, setPools] = useState<Pool[]>([]);
-    const [filteredPools, setFilteredPools] = useState<Pool[]>([]);
-    const [investments, setInvestments] = useState<Pool[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [isHoveredCard, setIsHoveredCard] = useState<number | null>(null);
+  const [ref, inView] = useInView({
+    triggerOnce: true,
+    threshold: 0.1
+  });
 
-    const fetchPools = async () => {
-        if (!connected) return;
+  const StatCard = ({ title, value, desc }: { title: string; value: string; desc: string }) => (
+    <motion.div 
+      variants={fadeIn}
+      whileHover={{ scale: 1.02 }}
+      className="stat bg-secondary/50 rounded-xl transform transition-all duration-300 hover:shadow-lg"
+    >
+      <div className="stat-title text-gray-400">{title}</div>
+      <motion.div 
+        className="stat-value text-primary"
+        animate={floatAnimation}
+      >
+        {value}
+      </motion.div>
+      <div className="stat-desc text-gray-400">{desc}</div>
+    </motion.div>
+  );
 
-        try {
-            setLoading(true);
-            setError(null);
-            const [fetchedPools, userInvestments] = await Promise.all([
-                getAllPools(),
-                getUserPoolParticipation()
-            ]);
-            console.log('Fetched pools:', fetchedPools);
-            console.log('User investments:', userInvestments);
-            setPools(fetchedPools);
-            setFilteredPools(fetchedPools); // Initialize filtered pools
-            setInvestments(userInvestments);
-        } catch (err) {
-            console.error('Error fetching pools:', err);
-            setError(err instanceof Error ? err.message : 'Failed to fetch pools');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const FeatureCard = ({ feature, index }: { feature: typeof features[0]; index: number }) => (
+    <motion.div
+      variants={fadeIn}
+      whileHover={{ scale: 1.02 }}
+      className={`card bg-secondary/50 shadow-xl transition-all duration-300 ${
+        isHoveredCard === index ? 'ring-2 ring-primary' : ''
+      }`}
+      onHoverStart={() => setIsHoveredCard(index)}
+      onHoverEnd={() => setIsHoveredCard(null)}
+    >
+      <div className="card-body">
+        <motion.div
+          animate={iconFloat}
+          className="text-4xl mb-4 inline-block"
+        >
+          {feature.icon}
+        </motion.div>
+        <h3 className="card-title text-white">{feature.title}</h3>
+        <p className="text-gray-400">{feature.description}</p>
+      </div>
+    </motion.div>
+  );
 
-    useEffect(() => {
-        let mounted = true;
-
-        if (connected && mounted) {
-            fetchPools();
-        }
-
-        return () => {
-            mounted = false;
-        };
-    }, [connected]);
-
-    return (
-        <div className="min-h-screen bg-base-200">
-            <div className="navbar bg-base-100">
-                <div className="flex-1">
-                    <Image src="/arise.png" width={50} height={50} alt='optional' />
-                    <a className="btn btn-ghost text-xl">Soon Arise</a>
-                </div>
-                <div className="flex-none">
-                    <WalletMultiButton className="btn btn-primary" />
-                </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-secondary to-neutral">
+      {/* Navbar */}
+      <motion.nav 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+        className="fixed top-0 w-full bg-secondary/80 backdrop-blur-sm z-50"
+      >
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Image 
+                src="/arise.png" 
+                alt="Logo" 
+                width={40} 
+                height={40}
+                className="rounded-full"
+              />
+              <span className="text-white text-xl font-bold">SOON ARISE</span>
             </div>
-
-            <div className="container mx-auto px-4 py-8">
-                {connected && (
-                    <div className="tabs tabs-boxed justify-center mb-8">
-                        <a 
-                            className={`tab ${activeTab === 'pools' ? 'tab-active' : ''}`}
-                            onClick={() => setActiveTab('pools')}
-                        >
-                            All Pools
-                        </a>
-                        <a 
-                            className={`tab ${activeTab === 'investments' ? 'tab-active' : ''}`}
-                            onClick={() => setActiveTab('investments')}
-                        >
-                            My Investments
-                        </a>
-                    </div>
-                )}
-
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold">
-                        {activeTab === 'pools' ? 'Active IDO Pools' : 'My Investments'}
-                    </h1>
-                    {connected && (
-                        <button 
-                            onClick={fetchPools}
-                            className={`btn btn-outline ${loading ? 'loading' : ''}`}
-                            disabled={loading}
-                        >
-                            Refresh
-                        </button>
-                    )}
-                </div>
-
-                {!connected ? (
-                    <div className="text-center p-8">
-                        <p className="text-gray-500 mb-4">Connect your wallet to view and participate in IDO pools</p>
-                        <WalletMultiButton className="btn btn-primary" />
-                    </div>
-                ) : loading && pools.length === 0 ? (
-                    <div className="flex justify-center items-center p-8">
-                        <div className="loading loading-spinner loading-lg"></div>
-                    </div>
-                ) : error ? (
-                    <div className="alert alert-error">
-                        <span>{error}</span>
-                        <button 
-                            onClick={fetchPools} 
-                            className="btn btn-sm btn-outline ml-4"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                ) : activeTab === 'pools' ? (
-                    <>
-                        {pools.length > 0 && (
-                            <SearchAndFilter 
-                                pools={pools}
-                                onFilteredPoolsChange={setFilteredPools}
-                            />
-                        )}
-                        {filteredPools.length === 0 ? (
-                            <div className="text-center p-8">
-                                <p className="text-gray-500">No matching pools found</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-6">
-                                {filteredPools.map((pool) => (
-                                    <IDOPoolCard 
-                                        key={pool.address}
-                                        pool={pool.data}
-                                        address={pool.address}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </>
-                ) : (
-                    investments.length === 0 ? (
-                        <div className="text-center p-8">
-                            <p className="text-gray-500">You haven't participated in any pools yet</p>
-                        </div>
-                    ) : (
-                        <div className="grid gap-6">
-                            {investments.map((pool) => (
-                                <div key={pool.address} className="relative">
-                                    <div className="absolute top-4 right-4 badge badge-lg badge-primary z-10">
-                                        Your Investment: {pool.data.userBalance} tokens
-                                    </div>
-                                    <IDOPoolCard 
-                                        pool={pool.data}
-                                        address={pool.address}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )
-                )}
+            <div className="flex items-center gap-4">
+              <Link href="/admin" className="text-white hover:text-primary transition-colors">
+                Admin
+              </Link>
+              <Link href="/idotoken" className="text-white hover:text-primary transition-colors">
+                IDO Token
+              </Link>
+              <WalletMultiButton className="btn btn-primary" />
             </div>
+          </div>
         </div>
-    );
+      </motion.nav>
+
+      {/* Hero Section */}
+      <section className="pt-24 pb-20">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={staggerChildren}
+            className="flex flex-col items-center text-center"
+          >
+            <motion.div
+              animate={floatAnimation}
+              className="hover:scale-105 transition-transform duration-300"
+            >
+              <Image 
+                src="/arise.png" 
+                alt="Hero Logo" 
+                width={200} 
+                height={200}
+                className="mb-8 drop-shadow-2xl"
+              />
+            </motion.div>
+
+            <motion.h1 
+              variants={fadeIn}
+              className="text-5xl font-bold text-white mb-6"
+            >
+              Welcome to SOON ARISE
+            </motion.h1>
+
+            <motion.p 
+              variants={fadeIn}
+              className="text-xl text-gray-300 max-w-2xl mb-8"
+            >
+              Launch your token with confidence on the most secure and decentralized platform
+            </motion.p>
+
+            <motion.div 
+              variants={fadeIn}
+              className="flex gap-4"
+            >
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link href="/admin" className="btn btn-primary btn-lg">
+                  Launch Token
+                </Link>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link href="/idotoken" className="btn btn-outline btn-lg text-white hover:bg-primary">
+                  Explore IDOs
+                </Link>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-20 bg-secondary/50">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={staggerChildren}
+          className="container mx-auto px-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {stats.map((stat, index) => (
+              <StatCard key={index} {...stat} />
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20" ref={ref}>
+        <motion.div 
+          initial="hidden"
+          animate={inView ? "visible" : "hidden"}
+          variants={staggerChildren}
+          className="container mx-auto px-4"
+        >
+          <motion.h2 
+            variants={fadeIn}
+            className="text-3xl font-bold text-center text-white mb-12"
+          >
+            Why Choose Our Platform
+          </motion.h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <FeatureCard key={index} feature={feature} index={index} />
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="bg-secondary/80 py-8"
+      >
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Image 
+                src="/arise.png" 
+                alt="Logo" 
+                width={30} 
+                height={30}
+                className="rounded-full"
+              />
+              <span className="text-white">© 2024 SOON ARISE</span>
+            </div>
+            <div className="flex gap-4">
+              <a href="#" className="text-gray-400 hover:text-primary">Terms</a>
+              <a href="#" className="text-gray-400 hover:text-primary">Privacy</a>
+              <a href="#" className="text-gray-400 hover:text-primary">Docs</a>
+            </div>
+          </div>
+        </div>
+      </motion.footer>
+    </div>
+  );
 }

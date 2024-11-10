@@ -327,12 +327,30 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
             const poolPubkey = new PublicKey(poolAddress);
             const poolAccount = await program.account.idoPool.fetch(poolPubkey);
             
+            // Get authority token account
             const authorityTokenAccount = await getAssociatedTokenAddress(
                 poolAccount.tokenMint,
                 wallet.publicKey
             );
 
-            const tx = await program.methods
+            // Check if authority token account exists, if not create it
+            const tokenAccount = await connection.getAccountInfo(authorityTokenAccount);
+            
+            let instructions: TransactionInstruction[] = [];
+            
+            if (!tokenAccount) {
+                instructions.push(
+                    createAssociatedTokenAccountInstruction(
+                        wallet.publicKey,
+                        authorityTokenAccount,
+                        wallet.publicKey,
+                        poolAccount.tokenMint
+                    )
+                );
+            }
+
+            // Add finalize pool instruction
+            const finalizeIx = await program.methods
                 .finalizePool()
                 .accounts({
                     pool: poolPubkey,
@@ -341,17 +359,25 @@ const participate = async ({ poolAddress, amount }: ParticipateParams) => {
                     authorityTokenAccount: authorityTokenAccount,
                     tokenProgram: TOKEN_PROGRAM_ID,
                 })
-                .rpc({
-                    skipPreflight: true,
-                    commitment: 'confirmed'
-                });
+                .instruction();
 
-            await connection.confirmTransaction(tx, 'confirmed');
-            return tx;
+            instructions.push(finalizeIx);
+
+            // Create and send transaction
+            const tx = new Transaction().add(...instructions);
+            const signature = await wallet.sendTransaction(tx, connection, {
+                skipPreflight: true,
+            });
+
+            await connection.confirmTransaction(signature, 'confirmed');
+            return signature;
 
         } catch (error) {
             console.error("Error finalizing pool:", error);
-            throw error;
+            if (error.message.includes("TokenAccount")) {
+                throw new Error("Failed to create token account");
+            }
+            throw new Error("Failed to finalize pool: " + error.message);
         }
     };
 
